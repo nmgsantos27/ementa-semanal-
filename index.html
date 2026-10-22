@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ementa Semanal & Compras</title>
   
-  <!-- Configurações PWA Android -->
+  <!-- Configurações PWA e Instalação Android -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#059669">
   <meta name="mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2921/2921822.png">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -109,7 +110,7 @@
         }
       };
 
-      // Sincronizações
+      // Sincronizações Firebase
       React.useEffect(() => {
         const unsub = db.collection('ementas').doc('semanal').onSnapshot((doc) => {
           if (doc.exists) setEmenta(doc.data());
