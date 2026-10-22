@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ementa Semanal</title>
+  <title>Ementa Semanal & Compras</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -11,7 +11,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-slate-50 min-h-screen">
+<body className="bg-slate-50 min-h-screen">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -35,6 +35,12 @@
       "Caldo Verde", "Salmão Grelhado", "Lasanha de Legumes", "Strogonoff de Frango"
     ];
 
+    const produtosPreDefinidos = [
+      "Leite", "Ovos", "Pão", "Fruta", "Legumes para Sopa", 
+      "Peixe Fresco", "Carne de Frango", "Carne de Vaca/Porco", 
+      "Arroz", "Massa", "Azeite", "Papel Higiénico"
+    ];
+
     function App() {
       const [tab, setTab] = React.useState('ementa');
       const [ementa, setEmenta] = React.useState({
@@ -46,27 +52,33 @@
         Sabado: { almoco: '', jantar: '' },
         Domingo: { almoco: '', jantar: '' }
       });
+      
+      const [catalogo, setCatalogo] = React.useState(produtosPreDefinidos);
+      const [novoProdutoCatalogo, setNovoProdutoCatalogo] = React.useState('');
       const [listaCompras, setListaCompras] = React.useState([]);
-      const [novoItem, setNovoItem] = React.useState('');
 
+      // Sincronizar Ementa
       React.useEffect(() => {
-        try {
-          const unsubscribe = db.collection('ementas').doc('semanal')
-            .onSnapshot((doc) => {
-              if (doc.exists) setEmenta(doc.data());
-            }, (error) => console.log(error));
-          return () => unsubscribe();
-        } catch (e) { console.error(e); }
+        const unsub = db.collection('ementas').doc('semanal').onSnapshot((doc) => {
+          if (doc.exists) setEmenta(doc.data());
+        });
+        return () => unsub();
       }, []);
 
+      // Sincronizar Catálogo de Produtos
       React.useEffect(() => {
-        try {
-          const unsubscribe = db.collection('compras').doc('lista')
-            .onSnapshot((doc) => {
-              if (doc.exists) setListaCompras(doc.data().itens || []);
-            }, (error) => console.log(error));
-          return () => unsubscribe();
-        } catch (e) { console.error(e); }
+        const unsub = db.collection('compras').doc('catalogo').onSnapshot((doc) => {
+          if (doc.exists) setCatalogo(doc.data().itens || produtosPreDefinidos);
+        });
+        return () => unsub();
+      }, []);
+
+      // Sincronizar Lista de Compras Ativa (com os piscos)
+      React.useEffect(() => {
+        const unsub = db.collection('compras').doc('ativa').onSnapshot((doc) => {
+          if (doc.exists) setListaCompras(doc.data().itens || []);
+        });
+        return () => unsub();
       }, []);
 
       const atualizarEmenta = (dia, refeicao, valor) => {
@@ -80,25 +92,38 @@
         atualizarEmenta(dia, refeicao, sugestao);
       };
 
-      const adicionarItemCompra = (e) => {
+      // Adicionar produto ao catálogo geral
+      const adicionarAoCatalogo = (e) => {
         e.preventDefault();
-        if (!novoItem.trim()) return;
-        const novaLista = [...listaCompras, { id: Date.now(), texto: novoItem, comprado: false }];
-        setListaCompras(novaLista);
-        db.collection('compras').doc('lista').set({ itens: novaLista });
-        setNovoItem('');
+        if (!novoProdutoCatalogo.trim()) return;
+        if (catalogo.includes(novoProdutoCatalogo)) return;
+        const novoCat = [...catalogo, novoProdutoCatalogo.trim()];
+        setCatalogo(novoCat);
+        db.collection('compras').doc('catalogo').set({ itens: novoCat });
+        setNovoProdutoCatalogo('');
       };
 
+      // Enviar produto do catálogo para a lista de compras do supermercado
+      const enviarParaCompras = (produtoNome) => {
+        // Verificar se já lá está para não duplicar
+        if (listaCompras.some(i => i.texto === produtoNome)) return;
+        const novaLista = [...listaCompras, { id: Date.now() + Math.random(), texto: produtoNome, comprado: false }];
+        setListaCompras(novaLista);
+        db.collection('compras').doc('ativa').set({ itens: novaLista });
+      };
+
+      // Alternar o pisco (checkbox) no supermercado
       const toggleItemCompra = (id) => {
         const novaLista = listaCompras.map(item => item.id === id ? { ...item, comprado: !item.comprado } : item);
         setListaCompras(novaLista);
-        db.collection('compras').doc('lista').set({ itens: novaLista });
+        db.collection('compras').doc('ativa').set({ itens: novaLista });
       };
 
+      // Remover item da lista de compras
       const removerItemCompra = (id) => {
         const novaLista = listaCompras.filter(item => item.id !== id);
         setListaCompras(novaLista);
-        db.collection('compras').doc('lista').set({ itens: novaLista });
+        db.collection('compras').doc('ativa').set({ itens: novaLista });
       };
 
       const dias = [
@@ -112,13 +137,14 @@
       ];
 
       return (
-        <div className="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-20">
+        <div className="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-24">
           <header className="bg-emerald-600 text-white p-5 rounded-b-3xl shadow-md sticky top-0 z-10">
-            <h1 className="text-xl font-bold">Ementa Semanal 🥗</h1>
-            <p className="text-xs text-emerald-100">Partilhada em Tempo Real</p>
+            <h1 className="text-xl font-bold">Ementa & Compras 🥗</h1>
+            <p className="text-xs text-emerald-100">Sincronizado a dois</p>
           </header>
 
           <main className="p-4 flex-1">
+            {/* ABA EMENTA */}
             {tab === 'ementa' && (
               <div className="space-y-4">
                 {dias.map(({ chave, nome }) => (
@@ -157,37 +183,78 @@
               </div>
             )}
 
-            {tab === 'compras' && (
+            {/* ABA CATÁLOGO DE PRODUTOS (Para escolher o que levar) */}
+            {tab === 'catalogo' && (
               <div className="space-y-4">
-                <form onSubmit={adicionarItemCompra} className="flex gap-2">
+                <form onSubmit={adicionarAoCatalogo} className="flex gap-2">
                   <input
                     type="text"
-                    value={novoItem}
-                    onChange={(e) => setNovoItem(e.target.value)}
-                    placeholder="Adicionar à lista..."
-                    className="flex-1 p-3 bg-white border border-slate-200 rounded-xl text-sm"
+                    value={novoProdutoCatalogo}
+                    onChange={(e) => setNovoProdutoCatalogo(e.target.value)}
+                    placeholder="Novo produto habitual..."
+                    className="flex-1 p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm"
                   />
-                  <button type="submit" className="bg-emerald-600 text-white font-bold px-4 rounded-xl text-lg">+</button>
+                  <button type="submit" className="bg-emerald-600 text-white font-bold px-4 rounded-xl text-lg shadow-md">+</button>
                 </form>
 
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                  <h3 className="font-bold text-slate-800 text-sm mb-3">Lista de Compras</h3>
+                  <h3 className="font-bold text-slate-800 text-sm mb-1">Produtos Habituais</h3>
+                  <p className="text-[11px] text-slate-400 mb-4">Clica num produto para o enviar para a Lista de Compras.</p>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {catalogo.map((prod, index) => {
+                      const naLista = listaCompras.some(i => i.texto === prod);
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => enviarParaCompras(prod)}
+                          className={`text-xs px-3 py-2 rounded-xl font-medium transition border flex items-center gap-1.5 ${
+                            naLista 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span>{prod}</span>
+                          <span className="text-[10px]">{naLista ? '✓' : '+'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ABA LISTA DE COMPRAS (Com piscos do supermercado) */}
+            {tab === 'compras' && (
+              <div className="space-y-4">
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="font-bold text-slate-800 text-sm">Carrinho de Supermercado</h3>
+                    <span className="text-xs text-slate-400">
+                      {listaCompras.filter(i => i.comprado).length} / {listaCompras.length} comprados
+                    </span>
+                  </div>
+
                   {listaCompras.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-6">Lista vazia!</p>
+                    <p className="text-xs text-slate-400 text-center py-8">A lista de compras está vazia! Vai à aba de Produtos para adicionar.</p>
                   ) : (
                     <ul className="space-y-2">
                       {listaCompras.map((item) => (
-                        <li key={item.id} className="flex items-center justify-between p-2 border-b border-slate-50">
+                        <li key={item.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
                           <label className="flex items-center gap-3 flex-1 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={item.comprado}
                               onChange={() => toggleItemCompra(item.id)}
-                              className="w-4 h-4 accent-emerald-600 rounded"
+                              className="w-5 h-5 accent-emerald-600 rounded"
                             />
-                            <span className={`text-sm ${item.comprado ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.texto}</span>
+                            <span className={`text-sm font-medium ${item.comprado ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                              {item.texto}
+                            </span>
                           </label>
-                          <button onClick={() => removerItemCompra(item.id)} className="text-xs text-rose-500 font-bold px-2">✕</button>
+                          <button onClick={() => removerItemCompra(item.id)} className="text-xs text-rose-500 font-bold px-2 py-1">
+                            ✕
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -197,9 +264,37 @@
             )}
           </main>
 
-          <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 max-w-md mx-auto flex justify-around z-20">
-            <button onClick={() => setTab('ementa')} className={`py-1.5 px-6 rounded-xl text-xs font-semibold ${tab === 'ementa' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}>📅 Ementa</button>
-            <button onClick={() => setTab('compras')} className={`py-1.5 px-6 rounded-xl text-xs font-semibold ${tab === 'compras' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}>🛒 Compras</button>
+          {/* NAVEGAÇÃO INFERIOR (3 TABS) */}
+          <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2 max-w-md mx-auto flex justify-around z-20 shadow-lg">
+            <button
+              onClick={() => setTab('ementa')}
+              className={`flex flex-col items-center py-1 px-4 rounded-xl text-xs font-semibold transition ${
+                tab === 'ementa' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <span className="text-base mb-0.5">📅</span>
+              Ementa
+            </button>
+
+            <button
+              onClick={() => setTab('catalogo')}
+              className={`flex flex-col items-center py-1 px-4 rounded-xl text-xs font-semibold transition ${
+                tab === 'catalogo' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <span className="text-base mb-0.5">🥫</span>
+              Produtos
+            </button>
+
+            <button
+              onClick={() => setTab('compras')}
+              className={`flex flex-col items-center py-1 px-4 rounded-xl text-xs font-semibold transition ${
+                tab === 'compras' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <span className="text-base mb-0.5">🛒</span>
+              Supermercado
+            </button>
           </nav>
         </div>
       );
