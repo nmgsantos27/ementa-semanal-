@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ementa-app-v1';
+const CACHE_NAME = 'ementa-pwa-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
