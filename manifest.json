@@ -5,18 +5,20 @@
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3405/3405771.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3405/3405771.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": "./index.html",
+  "start_url": "/ementa-semanal/index.html",
+  "scope": "/ementa-semanal/",
+  "display": "standalone",
   "background_color": "#059669",
   "theme_color": "#059669",
-  "display": "standalone",
-  "orientation": "portrait",
-  "scope": "./"
+  "orientation": "portrait"
 }
