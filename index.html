@@ -28,7 +28,6 @@
   <div id="root"></div>
 
   <script>
-    // Registo do Service Worker para suporte PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
@@ -54,16 +53,16 @@
     const db = firebase.firestore();
 
     const pratosIniciais = [
-      "Bacalhau à Brás", "Frango Assado com Batatas", "Massada de Peixe", 
-      "Arroz de Pato", "Carne de Porco à Alentejana", "Bife de Peru Grelhado",
-      "Caldo Verde / Sopa", "Salmão Grelhado com Arroz", "Lasanha de Legumes", 
-      "Strogonoff de Frango", "Polvo à Lagareiro", "Omelete de Espinafres", "Hambúrguer Caseiro"
+      "Arroz de Pato", "Bacalhau à Brás", "Bife de Peru Grelhado", 
+      "Caldo Verde / Sopa", "Carne de Porco à Alentejana", "Frango Assado com Batatas", 
+      "Hambúrguer Caseiro", "Lasanha de Legumes", "Massada de Peixe", 
+      "Omelete de Espinafres", "Polvo à Lagareiro", "Salmão Grelhado com Arroz", "Strogonoff de Frango"
     ];
 
     const produtosPreDefinidos = [
-      "Leite", "Ovos", "Pão", "Fruta", "Legumes para Sopa", 
-      "Peixe Fresco", "Carne de Frango", "Carne de Vaca/Porco", 
-      "Arroz", "Massa", "Azeite", "Papel Higiénico"
+      "Arroz", "Azeite", "Carne de Frango", "Carne de Vaca/Porco", 
+      "Fruta", "Legumes para Sopa", "Leite", "Massa", 
+      "Ovos", "Papel Higiénico", "Peixe Fresco", "Pão"
     ];
 
     function App() {
@@ -145,8 +144,9 @@
       const adicionarNovoPratoGeral = (e) => {
         e.preventDefault();
         if (!novoPratoInput.trim()) return;
-        if (listaPratos.includes(novoPratoInput.trim())) return;
-        const novaLista = [...listaPratos, novoPratoInput.trim()];
+        if (listaPratos.some(p => p.toLowerCase() === novoPratoInput.trim().toLowerCase())) return;
+        
+        const novaLista = [...listaPratos, novoPratoInput.trim()].sort((a, b) => a.localeCompare(b, 'pt'));
         setListaPratos(novaLista);
         db.collection('ementas').doc('catalogoPratos').set({ itens: novaLista });
         setNovoPratoInput('');
@@ -182,8 +182,9 @@
       const adicionarAoCatalogo = (e) => {
         e.preventDefault();
         if (!novoProdutoCatalogo.trim()) return;
-        if (catalogo.includes(novoProdutoCatalogo)) return;
-        const novoCat = [...catalogo, novoProdutoCatalogo.trim()];
+        if (catalogo.some(c => c.toLowerCase() === novoProdutoCatalogo.trim().toLowerCase())) return;
+
+        const novoCat = [...catalogo, novoProdutoCatalogo.trim()].sort((a, b) => a.localeCompare(b, 'pt'));
         setCatalogo(novoCat);
         db.collection('compras').doc('catalogo').set({ itens: novoCat });
         setNovoProdutoCatalogo('');
@@ -230,6 +231,15 @@
         { chave: 'Sabado', nome: 'Sábado' },
         { chave: 'Domingo', nome: 'Domingo' }
       ];
+
+      // Ordenar pratos, produtos e compras de A a Z com suporte a acentos portugueses
+      const pratosOrdenados = [...listaPratos].sort((a, b) => a.localeCompare(b, 'pt'));
+      const catalogoOrdenado = [...catalogo].sort((a, b) => a.localeCompare(b, 'pt'));
+      
+      const comprasOrdenadas = [...listaCompras].sort((a, b) => {
+        if (a.comprado !== b.comprado) return a.comprado ? 1 : -1;
+        return a.texto.localeCompare(b.texto, 'pt');
+      });
 
       return (
         <div className="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-24 relative">
@@ -312,9 +322,9 @@
                 </form>
 
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                  <h3 className="font-bold text-slate-800 text-sm mb-3">Lista de Pratos Habituais</h3>
+                  <h3 className="font-bold text-slate-800 text-sm mb-3">Lista de Pratos (A–Z)</h3>
                   <ul className="space-y-2">
-                    {listaPratos.map((prato, index) => (
+                    {pratosOrdenados.map((prato, index) => (
                       <li key={index} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
                         <span className="text-sm font-medium text-slate-800">{prato}</span>
                         <button onClick={() => removerPratoGeral(prato)} className="text-xs text-rose-500 font-bold px-2 py-1">✕</button>
@@ -340,11 +350,11 @@
                 </form>
 
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                  <h3 className="font-bold text-slate-800 text-sm mb-1">Produtos Habituais</h3>
+                  <h3 className="font-bold text-slate-800 text-sm mb-1">Produtos Habituais (A–Z)</h3>
                   <p className="text-[11px] text-slate-400 mb-4">Clica num produto para o enviar para a Lista de Compras.</p>
                   
                   <div className="flex flex-wrap gap-2">
-                    {catalogo.map((prod, index) => {
+                    {catalogoOrdenado.map((prod, index) => {
                       const naLista = listaCompras.some(i => i.texto === prod);
                       return (
                         <button
@@ -400,7 +410,7 @@
                     <p className="text-xs text-slate-400 text-center py-8">A lista de compras está vazia!</p>
                   ) : (
                     <ul className="space-y-2">
-                      {listaCompras.map((item) => (
+                      {comprasOrdenadas.map((item) => (
                         <li key={item.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
                           <label className="flex items-center gap-3 flex-1 cursor-pointer">
                             <input
@@ -443,7 +453,7 @@
                 />
 
                 <div className="overflow-y-auto flex-1 space-y-2 pr-1">
-                  {listaPratos
+                  {pratosOrdenados
                     .filter(p => p.toLowerCase().includes(pesquisaPrato.toLowerCase()))
                     .map((prato, idx) => (
                       <button
@@ -488,7 +498,7 @@
                 tab === 'catalogo' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'
               }`}
             >
-              <span className="text-base mb-0.5">🥫</span>
+              <span className="text-base mb-0.5">罐</span>
               Produtos
             </button>
 
