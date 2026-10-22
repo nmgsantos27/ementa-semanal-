@@ -4,15 +4,39 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ementa Semanal & Compras</title>
+  
+  <!-- Configurações PWA e Instalação -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#059669">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Ementa">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3405/3405771.png">
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body className="bg-slate-50 min-h-screen">
   <div id="root"></div>
+
+  <script>
+    // Registo do Service Worker para suporte PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('PWA Service Worker Registado!'))
+          .catch(err => console.log('Erro ao registar Service Worker:', err));
+      });
+    }
+  </script>
 
   <script type="text/babel">
     const firebaseConfig = {
@@ -59,7 +83,6 @@
       const [novoPratoInput, setNovoPratoInput] = React.useState('');
       const [pesquisaPrato, setPesquisaPrato] = React.useState('');
       
-      // Modal para selecionar prato da lista num dia específico
       const [modalAberto, setModalAberto] = React.useState(false);
       const [diaSelecionado, setDiaSelecionado] = React.useState(null);
       const [refeicaoSelecionada, setRefeicaoSelecionada] = React.useState(null);
@@ -76,7 +99,7 @@
         return () => unsub();
       }, []);
 
-      // Sincronizar Lista de Pratos / Receitas
+      // Sincronizar Pratos
       React.useEffect(() => {
         const unsub = db.collection('ementas').doc('catalogoPratos').onSnapshot((doc) => {
           if (doc.exists) setListaPratos(doc.data().itens || pratosIniciais);
@@ -84,7 +107,7 @@
         return () => unsub();
       }, []);
 
-      // Sincronizar Catálogo de Produtos
+      // Sincronizar Produtos
       React.useEffect(() => {
         const unsub = db.collection('compras').doc('catalogo').onSnapshot((doc) => {
           if (doc.exists) setCatalogo(doc.data().itens || produtosPreDefinidos);
@@ -92,7 +115,7 @@
         return () => unsub();
       }, []);
 
-      // Sincronizar Lista de Compras Ativa
+      // Sincronizar Compras Ativas
       React.useEffect(() => {
         const unsub = db.collection('compras').doc('ativa').onSnapshot((doc) => {
           if (doc.exists) setListaCompras(doc.data().itens || []);
@@ -210,7 +233,7 @@
 
       return (
         <div className="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-24 relative">
-          <header className="bg-emerald-600 text-white p-5 rounded-b-3xl shadow-md sticky top-0 z-10">
+          <header className="bg-emerald-600 text-white p-5 rounded-b-3xl shadow-md sticky top-0 z-10 pt-8">
             <div className="flex justify-between items-center">
               <div>
                 <h1 className="text-xl font-bold">Ementa & Compras 🥗</h1>
@@ -231,17 +254,16 @@
             {/* ABA EMENTA */}
             {tab === 'ementa' && (
               <div className="space-y-4">
-                <p className="text-xs text-slate-400 text-center">Clica em "📖 Escolher da Lista" para pesquisar e selecionar um prato guardado.</p>
+                <p className="text-xs text-slate-400 text-center">Clica em "📖 Escolher" para pesquisar pratos guardados.</p>
                 {dias.map(({ chave, nome }) => (
                   <div key={chave} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
                     <span className="font-bold text-slate-800 text-sm block mb-3">{nome}</span>
                     <div className="space-y-3">
-                      {/* Almoço */}
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <label className="text-[10px] font-semibold text-slate-400 uppercase">Almoço</label>
                           <div className="flex gap-2">
-                            <button onClick={() => abrirSeletorPrato(chave, 'almoco')} className="text-[11px] text-emerald-600 font-semibold hover:underline">📖 Escolher</button>
+                            <button onClick={() => abrirSeletorPrato(chave, 'almoco')} className="text-[11px] text-emerald-600 font-semibold">📖 Escolher</button>
                             <button onClick={() => sugerirRefeicao(chave, 'almoco')} className="text-[11px] text-emerald-600 font-medium">✨ Sugerir</button>
                           </div>
                         </div>
@@ -253,12 +275,11 @@
                           placeholder="O que almoçar?"
                         />
                       </div>
-                      {/* Jantar */}
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <label className="text-[10px] font-semibold text-slate-400 uppercase">Jantar</label>
                           <div className="flex gap-2">
-                            <button onClick={() => abrirSeletorPrato(chave, 'jantar')} className="text-[11px] text-emerald-600 font-semibold hover:underline">📖 Escolher</button>
+                            <button onClick={() => abrirSeletorPrato(chave, 'jantar')} className="text-[11px] text-emerald-600 font-semibold">📖 Escolher</button>
                             <button onClick={() => sugerirRefeicao(chave, 'jantar')} className="text-[11px] text-emerald-600 font-medium">✨ Sugerir</button>
                           </div>
                         </div>
@@ -276,7 +297,7 @@
               </div>
             )}
 
-            {/* ABA CATÁLOGO DE PRATOS / RECEITAS */}
+            {/* ABA PRATOS */}
             {tab === 'pratos' && (
               <div className="space-y-4">
                 <form onSubmit={adicionarNovoPratoGeral} className="flex gap-2">
@@ -304,7 +325,7 @@
               </div>
             )}
 
-            {/* ABA CATÁLOGO DE PRODUTOS */}
+            {/* ABA PRODUTOS */}
             {tab === 'catalogo' && (
               <div className="space-y-4">
                 <form onSubmit={adicionarAoCatalogo} className="flex gap-2">
@@ -345,7 +366,7 @@
               </div>
             )}
 
-            {/* ABA LISTA DE COMPRAS (Supermercado) */}
+            {/* ABA COMPRAS */}
             {tab === 'compras' && (
               <div className="space-y-4">
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
@@ -376,7 +397,7 @@
                   </div>
 
                   {listaCompras.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-8">A lista de compras está vazia! Vai à aba de Produtos para adicionar.</p>
+                    <p className="text-xs text-slate-400 text-center py-8">A lista de compras está vazia!</p>
                   ) : (
                     <ul className="space-y-2">
                       {listaCompras.map((item) => (
@@ -404,13 +425,13 @@
             )}
           </main>
 
-          {/* MODAL PARA PESQUISAR E SELECIONAR PRATO */}
+          {/* MODAL PRATOS */}
           {modalAberto && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-              <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 max-h-[80vh] flex flex-col shadow-2xl animate-in fade-in duration-200">
+              <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 max-h-[80vh] flex flex-col shadow-2xl">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-bold text-slate-800 text-base">Selecionar Prato</h3>
-                  <button onClick={() => setModalAberto(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg px-2">✕</button>
+                  <button onClick={() => setModalAberto(false)} className="text-slate-400 font-bold text-lg px-2">✕</button>
                 </div>
 
                 <input
@@ -418,7 +439,7 @@
                   placeholder="Pesquisar prato..."
                   value={pesquisaPrato}
                   onChange={(e) => setPesquisaPrato(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm mb-4 focus:outline-none"
                 />
 
                 <div className="overflow-y-auto flex-1 space-y-2 pr-1">
@@ -428,26 +449,23 @@
                       <button
                         key={idx}
                         onClick={() => selecionarPratoDoModal(prato)}
-                        className="w-full text-left p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-100 rounded-xl text-sm font-medium transition flex justify-between items-center"
+                        className="w-full text-left p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-100 rounded-xl text-sm font-medium transition flex justify-between items-center"
                       >
                         <span>{prato}</span>
                         <span className="text-xs text-emerald-600 font-semibold">+ Selecionar</span>
                       </button>
                     ))}
-                  {listaPratos.filter(p => p.toLowerCase().includes(pesquisaPrato.toLowerCase())).length === 0 && (
-                    <p className="text-xs text-slate-400 text-center py-6">Nenhum prato encontrado com esse nome.</p>
-                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* NAVEGAÇÃO INFERIOR (4 TABS) */}
+          {/* NAVEGAÇÃO INFERIOR */}
           <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2 max-w-md mx-auto flex justify-around z-20 shadow-lg">
             <button
               onClick={() => setTab('ementa')}
               className={`flex flex-col items-center py-1 px-3 rounded-xl text-xs font-semibold transition ${
-                tab === 'ementa' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+                tab === 'ementa' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'
               }`}
             >
               <span className="text-base mb-0.5">📅</span>
@@ -457,7 +475,7 @@
             <button
               onClick={() => setTab('pratos')}
               className={`flex flex-col items-center py-1 px-3 rounded-xl text-xs font-semibold transition ${
-                tab === 'pratos' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+                tab === 'pratos' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'
               }`}
             >
               <span className="text-base mb-0.5">📖</span>
@@ -467,7 +485,7 @@
             <button
               onClick={() => setTab('catalogo')}
               className={`flex flex-col items-center py-1 px-3 rounded-xl text-xs font-semibold transition ${
-                tab === 'catalogo' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+                tab === 'catalogo' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'
               }`}
             >
               <span className="text-base mb-0.5">🥫</span>
@@ -477,7 +495,7 @@
             <button
               onClick={() => setTab('compras')}
               className={`flex flex-col items-center py-1 px-3 rounded-xl text-xs font-semibold transition ${
-                tab === 'compras' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+                tab === 'compras' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'
               }`}
             >
               <span className="text-base mb-0.5">🛒</span>
