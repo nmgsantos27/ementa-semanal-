@@ -4,21 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ementa Semanal Partilhada</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React e ReactDOM -->
+  <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel para interpretar JSX -->
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Firebase -->
+  <!-- Firebase (Compat SDKs para browser) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-slate-100">
+<body class="bg-slate-50 min-h-screen font-sans">
   <div id="root"></div>
 
   <script type="text/babel">
-    // 1. AS TUAS CREDENCIAIS DO FIREBASE
+    // As tuas credenciais do Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBNOeSZW9DTJ6Q9DrEzcO9IP-Ycu7jZJl0",
       authDomain: "ementa-semanal-17105.firebaseapp.com",
@@ -28,12 +29,21 @@
       appId: "1:918577134480:web:aa70047d13284f25441115"
     };
 
-    // Inicializar Firebase
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const db = firebase.firestore();
 
-    // COMPONENTE PRINCIPAL
+    const sugestoesRefeicoes = [
+      "Bacalhau à Brás", "Frango Assado com Batatas", "Massada de Peixe", 
+      "Arroz de Pato", "Carne de Porco à Alentejana", "Bife de Peru com Grelhados",
+      "Caldo Verde / Sopa de Legumes", "Salmão Grelhado com Arroz",
+      "Lasanha de Legumes", "Strogonoff de Frango", "Polvo à Lagareiro",
+      "Omelete de Espinafres", "Hambúrguer Caseiro no Prato"
+    ];
+
     function App() {
+      const [tab, setTab] = React.useState('ementa');
       const [ementa, setEmenta] = React.useState({
         Segunda: { almoco: '', jantar: '' },
         Terca: { almoco: '', jantar: '' },
@@ -43,8 +53,10 @@
         Sabado: { almoco: '', jantar: '' },
         Domingo: { almoco: '', jantar: '' }
       });
+      const [listaCompras, setListaCompras] = React.useState([]);
+      const [novoItem, setNovoItem] = React.useState('');
 
-      // Ler dados em tempo real do Firestore
+      // Sincronizar ementa em tempo real
       React.useEffect(() => {
         const unsubscribe = db.collection('ementas').doc('semanal')
           .onSnapshot((doc) => {
@@ -55,14 +67,52 @@
         return () => unsubscribe();
       }, []);
 
-      // Atualizar no Firestore ao alterar
-      const handleChange = (dia, refeicao, valor) => {
+      // Sincronizar lista de compras em tempo real
+      React.useEffect(() => {
+        const unsubscribe = db.collection('compras').doc('lista')
+          .onSnapshot((doc) => {
+            if (doc.exists) {
+              setListaCompras(doc.data().itens || []);
+            }
+          });
+        return () => unsubscribe();
+      }, []);
+
+      const atualizarEmenta = (dia, refeicao, valor) => {
         const novaEmenta = {
           ...ementa,
           [dia]: { ...ementa[dia], [refeicao]: valor }
         };
         setEmenta(novaEmenta);
         db.collection('ementas').doc('semanal').set(novaEmenta);
+      };
+
+      const sugerirRefeicao = (dia, refeicao) => {
+        const sugestao = sugestoesRefeicoes[Math.floor(Math.random() * sugestoesRefeicoes.length)];
+        atualizarEmenta(dia, refeicao, sugestao);
+      };
+
+      const adicionarItemCompra = (e) => {
+        e.preventDefault();
+        if (!novoItem.trim()) return;
+        const novaLista = [...listaCompras, { id: Date.now(), texto: novoItem, comprado: false }];
+        setListaCompras(novaLista);
+        db.collection('compras').doc('lista').set({ itens: novaLista });
+        setNovoItem('');
+      };
+
+      const toggleItemCompra = (id) => {
+        const novaLista = listaCompras.map(item => 
+          item.id === id ? { ...item, comprado: !item.comprado } : item
+        );
+        setListaCompras(novaLista);
+        db.collection('compras').doc('lista').set({ itens: novaLista });
+      };
+
+      const removerItemCompra = (id) => {
+        const novaLista = listaCompras.filter(item => item.id !== id);
+        setListaCompras(novaLista);
+        db.collection('compras').doc('lista').set({ itens: novaLista });
       };
 
       const dias = [
@@ -76,41 +126,147 @@
       ];
 
       return (
-        <div class="max-w-md mx-auto p-4 pb-20">
-          <header class="text-center my-6">
-            <h1 class="text-2xl font-bold text-slate-800">🥗 Ementa Semanal</h1>
-            <p class="text-xs text-slate-500">Sincronizada em tempo real</p>
+        <div class="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-24">
+          <!-- Cabeçalho -->
+          <header class="bg-emerald-600 text-white p-5 rounded-b-3xl shadow-lg sticky top-0 z-10">
+            <div class="flex justify-between items-center">
+              <div>
+                <h1 class="text-xl font-bold tracking-wide">Ementa Semanal 🥗</h1>
+                <p class="text-xs text-emerald-100 mt-0.5">Partilhada a dois • Tempo Real</p>
+              </div>
+              <span class="bg-emerald-500/50 text-white text-[10px] px-2.5 py-1 rounded-full font-medium border border-emerald-400/30">
+                • Online
+              </span>
+            </div>
           </header>
 
-          <div class="space-y-4">
-            {dias.map(({ chave, nome }) => (
-              <div key={chave} class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <h2 class="font-semibold text-slate-700 mb-2">{nome}</h2>
-                <div class="space-y-2 text-sm">
-                  <div>
-                    <label class="block text-xs text-slate-400 mb-1">Almoço</label>
-                    <input
-                      type="text"
-                      class="w-full p-2 border rounded-lg bg-slate-50 focus:bg-white text-slate-800"
-                      value={ementa[chave]?.almoco || ''}
-                      onChange={(e) => handleChange(chave, 'almoco', e.target.value)}
-                      placeholder="O que vamos almoçar?"
-                    />
+          <!-- Conteúdo Principal -->
+          <main class="p-4 flex-1">
+            {tab === 'ementa' && (
+              <div class="space-y-4">
+                {dias.map(({ chave, nome }) => (
+                  <div key={chave} class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                    <div class="flex justify-between items-center mb-3">
+                      <span class="font-bold text-slate-800 text-sm">{nome}</span>
+                      <span class="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                        {chave === 'Sabado' || chave === 'Domingo' ? 'Fim de Semana' : 'Dia Útil'}
+                      </span>
+                    </div>
+
+                    <div class="space-y-3">
+                      <!-- Almoço -->
+                      <div>
+                        <div class="flex justify-between items-center mb-1">
+                          <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Almoço</label>
+                          <button 
+                            onClick={() => sugerirRefeicao(chave, 'almoco')}
+                            class="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium"
+                          >
+                            ✨ Sugerir
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          value={ementa[chave]?.almoco || ''}
+                          onChange={(e) => atualizarEmenta(chave, 'almoco', e.target.value)}
+                          placeholder="O que almoçar?"
+                        />
+                      </div>
+
+                      <!-- Jantar -->
+                      <div>
+                        <div class="flex justify-between items-center mb-1">
+                          <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Jantar</label>
+                          <button 
+                            onClick={() => sugerirRefeicao(chave, 'jantar')}
+                            class="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium"
+                          >
+                            ✨ Sugerir
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          value={ementa[chave]?.jantar || ''}
+                          onChange={(e) => atualizarEmenta(chave, 'jantar', e.target.value)}
+                          placeholder="O que jantar?"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label class="block text-xs text-slate-400 mb-1">Jantar</label>
-                    <input
-                      type="text"
-                      class="w-full p-2 border rounded-lg bg-slate-50 focus:bg-white text-slate-800"
-                      value={ementa[chave]?.jantar || ''}
-                      onChange={(e) => handleChange(chave, 'jantar', e.target.value)}
-                      placeholder="O que vamos jantar?"
-                    />
-                  </div>
+                ))}
+              </div>
+            )}
+
+            {tab === 'compras' && (
+              <div class="space-y-4">
+                <form onSubmit={adicionarItemCompra} class="flex gap-2">
+                  <input
+                    type="text"
+                    value={novoItem}
+                    onChange={(e) => setNovoItem(e.target.value)}
+                    placeholder="Adicionar à lista..."
+                    class="flex-1 p-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                  />
+                  <button type="submit" class="bg-emerald-600 text-white font-bold px-4 rounded-xl text-lg shadow-md hover:bg-emerald-700">
+                    +
+                  </button>
+                </form>
+
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                  <h3 class="font-bold text-slate-800 text-sm mb-3">Lista de Compras</h3>
+                  {listaCompras.length === 0 ? (
+                    <p class="text-xs text-slate-400 text-center py-6">A lista de compras está vazia!</p>
+                  ) : (
+                    <ul class="space-y-2">
+                      {listaCompras.map((item) => (
+                        <li key={item.id} class="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg">
+                          <label class="flex items-center gap-3 flex-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={item.comprado}
+                              onChange={() => toggleItemCompra(item.id)}
+                              class="w-4 h-4 accent-emerald-600 rounded"
+                            />
+                            <span class={`text-sm ${item.comprado ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                              {item.texto}
+                            </span>
+                          </label>
+                          <button onClick={() => removerItemCompra(item.id)} class="text-xs text-rose-500 font-bold px-2">
+                            ✕
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </main>
+
+          <!-- Navegação Inferior (Tabs) -->
+          <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 p-2 max-w-md mx-auto flex justify-around z-20">
+            <button
+              onClick={() => setTab('ementa')}
+              class={`flex flex-col items-center py-1.5 px-6 rounded-xl text-xs font-semibold transition ${
+                tab === 'ementa' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <span class="text-base mb-0.5">📅</span>
+              Ementa
+            </button>
+
+            <button
+              onClick={() => setTab('compras')}
+              class={`flex flex-col items-center py-1.5 px-6 rounded-xl text-xs font-semibold transition ${
+                tab === 'compras' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <span class="text-base mb-0.5">🛒</span>
+              Compras
+            </button>
+          </nav>
         </div>
       );
     }
