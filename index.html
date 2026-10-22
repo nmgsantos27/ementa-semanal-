@@ -3,23 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ementa Semanal Partilhada</title>
-  <!-- Tailwind CSS -->
+  <title>Ementa Semanal</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Firebase (Compat SDKs para browser) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-slate-50 min-h-screen font-sans">
+<body class="bg-slate-50 min-h-screen">
   <div id="root"></div>
 
   <script type="text/babel">
-    // As tuas credenciais do Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBNOeSZW9DTJ6Q9DrEzcO9IP-Ycu7jZJl0",
       authDomain: "ementa-semanal-17105.firebaseapp.com",
@@ -35,11 +30,9 @@
     const db = firebase.firestore();
 
     const sugestoesRefeicoes = [
-      "Bacalhau à Brás", "Frango Assado com Batatas", "Massada de Peixe", 
-      "Arroz de Pato", "Carne de Porco à Alentejana", "Bife de Peru com Grelhados",
-      "Caldo Verde / Sopa de Legumes", "Salmão Grelhado com Arroz",
-      "Lasanha de Legumes", "Strogonoff de Frango", "Polvo à Lagareiro",
-      "Omelete de Espinafres", "Hambúrguer Caseiro no Prato"
+      "Bacalhau à Brás", "Frango Assado", "Massada de Peixe", 
+      "Arroz de Pato", "Carne de Porco à Alentejana", "Bife de Peru Grelhado",
+      "Caldo Verde", "Salmão Grelhado", "Lasanha de Legumes", "Strogonoff de Frango"
     ];
 
     function App() {
@@ -56,33 +49,28 @@
       const [listaCompras, setListaCompras] = React.useState([]);
       const [novoItem, setNovoItem] = React.useState('');
 
-      // Sincronizar ementa em tempo real
       React.useEffect(() => {
-        const unsubscribe = db.collection('ementas').doc('semanal')
-          .onSnapshot((doc) => {
-            if (doc.exists) {
-              setEmenta(doc.data());
-            }
-          });
-        return () => unsubscribe();
+        try {
+          const unsubscribe = db.collection('ementas').doc('semanal')
+            .onSnapshot((doc) => {
+              if (doc.exists) setEmenta(doc.data());
+            }, (error) => console.log(error));
+          return () => unsubscribe();
+        } catch (e) { console.error(e); }
       }, []);
 
-      // Sincronizar lista de compras em tempo real
       React.useEffect(() => {
-        const unsubscribe = db.collection('compras').doc('lista')
-          .onSnapshot((doc) => {
-            if (doc.exists) {
-              setListaCompras(doc.data().itens || []);
-            }
-          });
-        return () => unsubscribe();
+        try {
+          const unsubscribe = db.collection('compras').doc('lista')
+            .onSnapshot((doc) => {
+              if (doc.exists) setListaCompras(doc.data().itens || []);
+            }, (error) => console.log(error));
+          return () => unsubscribe();
+        } catch (e) { console.error(e); }
       }, []);
 
       const atualizarEmenta = (dia, refeicao, valor) => {
-        const novaEmenta = {
-          ...ementa,
-          [dia]: { ...ementa[dia], [refeicao]: valor }
-        };
+        const novaEmenta = { ...ementa, [dia]: { ...ementa[dia], [refeicao]: valor } };
         setEmenta(novaEmenta);
         db.collection('ementas').doc('semanal').set(novaEmenta);
       };
@@ -102,9 +90,7 @@
       };
 
       const toggleItemCompra = (id) => {
-        const novaLista = listaCompras.map(item => 
-          item.id === id ? { ...item, comprado: !item.comprado } : item
-        );
+        const novaLista = listaCompras.map(item => item.id === id ? { ...item, comprado: !item.comprado } : item);
         setListaCompras(novaLista);
         db.collection('compras').doc('lista').set({ itens: novaLista });
       };
@@ -126,68 +112,40 @@
       ];
 
       return (
-        <div class="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-24">
-          <!-- Cabeçalho -->
-          <header class="bg-emerald-600 text-white p-5 rounded-b-3xl shadow-lg sticky top-0 z-10">
-            <div class="flex justify-between items-center">
-              <div>
-                <h1 class="text-xl font-bold tracking-wide">Ementa Semanal 🥗</h1>
-                <p class="text-xs text-emerald-100 mt-0.5">Partilhada a dois • Tempo Real</p>
-              </div>
-              <span class="bg-emerald-500/50 text-white text-[10px] px-2.5 py-1 rounded-full font-medium border border-emerald-400/30">
-                • Online
-              </span>
-            </div>
+        <div className="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-20">
+          <header className="bg-emerald-600 text-white p-5 rounded-b-3xl shadow-md sticky top-0 z-10">
+            <h1 className="text-xl font-bold">Ementa Semanal 🥗</h1>
+            <p className="text-xs text-emerald-100">Partilhada em Tempo Real</p>
           </header>
 
-          <!-- Conteúdo Principal -->
-          <main class="p-4 flex-1">
+          <main className="p-4 flex-1">
             {tab === 'ementa' && (
-              <div class="space-y-4">
+              <div className="space-y-4">
                 {dias.map(({ chave, nome }) => (
-                  <div key={chave} class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                    <div class="flex justify-between items-center mb-3">
-                      <span class="font-bold text-slate-800 text-sm">{nome}</span>
-                      <span class="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                        {chave === 'Sabado' || chave === 'Domingo' ? 'Fim de Semana' : 'Dia Útil'}
-                      </span>
-                    </div>
-
-                    <div class="space-y-3">
-                      <!-- Almoço -->
+                  <div key={chave} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                    <span className="font-bold text-slate-800 text-sm block mb-3">{nome}</span>
+                    <div className="space-y-3">
                       <div>
-                        <div class="flex justify-between items-center mb-1">
-                          <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Almoço</label>
-                          <button 
-                            onClick={() => sugerirRefeicao(chave, 'almoco')}
-                            class="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium"
-                          >
-                            ✨ Sugerir
-                          </button>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[10px] font-semibold text-slate-400 uppercase">Almoço</label>
+                          <button onClick={() => sugerirRefeicao(chave, 'almoco')} className="text-[11px] text-emerald-600 font-medium">✨ Sugerir</button>
                         </div>
                         <input
                           type="text"
-                          class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
                           value={ementa[chave]?.almoco || ''}
                           onChange={(e) => atualizarEmenta(chave, 'almoco', e.target.value)}
                           placeholder="O que almoçar?"
                         />
                       </div>
-
-                      <!-- Jantar -->
                       <div>
-                        <div class="flex justify-between items-center mb-1">
-                          <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Jantar</label>
-                          <button 
-                            onClick={() => sugerirRefeicao(chave, 'jantar')}
-                            class="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium"
-                          >
-                            ✨ Sugerir
-                          </button>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[10px] font-semibold text-slate-400 uppercase">Jantar</label>
+                          <button onClick={() => sugerirRefeicao(chave, 'jantar')} className="text-[11px] text-emerald-600 font-medium">✨ Sugerir</button>
                         </div>
                         <input
                           type="text"
-                          class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
                           value={ementa[chave]?.jantar || ''}
                           onChange={(e) => atualizarEmenta(chave, 'jantar', e.target.value)}
                           placeholder="O que jantar?"
@@ -200,42 +158,36 @@
             )}
 
             {tab === 'compras' && (
-              <div class="space-y-4">
-                <form onSubmit={adicionarItemCompra} class="flex gap-2">
+              <div className="space-y-4">
+                <form onSubmit={adicionarItemCompra} className="flex gap-2">
                   <input
                     type="text"
                     value={novoItem}
                     onChange={(e) => setNovoItem(e.target.value)}
                     placeholder="Adicionar à lista..."
-                    class="flex-1 p-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                    className="flex-1 p-3 bg-white border border-slate-200 rounded-xl text-sm"
                   />
-                  <button type="submit" class="bg-emerald-600 text-white font-bold px-4 rounded-xl text-lg shadow-md hover:bg-emerald-700">
-                    +
-                  </button>
+                  <button type="submit" className="bg-emerald-600 text-white font-bold px-4 rounded-xl text-lg">+</button>
                 </form>
 
-                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-                  <h3 class="font-bold text-slate-800 text-sm mb-3">Lista de Compras</h3>
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                  <h3 className="font-bold text-slate-800 text-sm mb-3">Lista de Compras</h3>
                   {listaCompras.length === 0 ? (
-                    <p class="text-xs text-slate-400 text-center py-6">A lista de compras está vazia!</p>
+                    <p className="text-xs text-slate-400 text-center py-6">Lista vazia!</p>
                   ) : (
-                    <ul class="space-y-2">
+                    <ul className="space-y-2">
                       {listaCompras.map((item) => (
-                        <li key={item.id} class="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg">
-                          <label class="flex items-center gap-3 flex-1 cursor-pointer">
+                        <li key={item.id} className="flex items-center justify-between p-2 border-b border-slate-50">
+                          <label className="flex items-center gap-3 flex-1 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={item.comprado}
                               onChange={() => toggleItemCompra(item.id)}
-                              class="w-4 h-4 accent-emerald-600 rounded"
+                              className="w-4 h-4 accent-emerald-600 rounded"
                             />
-                            <span class={`text-sm ${item.comprado ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                              {item.texto}
-                            </span>
+                            <span className={`text-sm ${item.comprado ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.texto}</span>
                           </label>
-                          <button onClick={() => removerItemCompra(item.id)} class="text-xs text-rose-500 font-bold px-2">
-                            ✕
-                          </button>
+                          <button onClick={() => removerItemCompra(item.id)} className="text-xs text-rose-500 font-bold px-2">✕</button>
                         </li>
                       ))}
                     </ul>
@@ -245,27 +197,9 @@
             )}
           </main>
 
-          <!-- Navegação Inferior (Tabs) -->
-          <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 p-2 max-w-md mx-auto flex justify-around z-20">
-            <button
-              onClick={() => setTab('ementa')}
-              class={`flex flex-col items-center py-1.5 px-6 rounded-xl text-xs font-semibold transition ${
-                tab === 'ementa' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <span class="text-base mb-0.5">📅</span>
-              Ementa
-            </button>
-
-            <button
-              onClick={() => setTab('compras')}
-              class={`flex flex-col items-center py-1.5 px-6 rounded-xl text-xs font-semibold transition ${
-                tab === 'compras' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <span class="text-base mb-0.5">🛒</span>
-              Compras
-            </button>
+          <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 max-w-md mx-auto flex justify-around z-20">
+            <button onClick={() => setTab('ementa')} className={`py-1.5 px-6 rounded-xl text-xs font-semibold ${tab === 'ementa' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}>📅 Ementa</button>
+            <button onClick={() => setTab('compras')} className={`py-1.5 px-6 rounded-xl text-xs font-semibold ${tab === 'compras' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'}`}>🛒 Compras</button>
           </nav>
         </div>
       );
