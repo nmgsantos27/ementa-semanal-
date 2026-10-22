@@ -5,13 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ementa Semanal & Compras</title>
   
-  <!-- Configurações PWA e Instalação -->
-  <link rel="manifest" href="./manifest.json">
+  <!-- Configurações PWA Android -->
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#059669">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Ementa">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3405/3405771.png">
+  <meta name="mobile-web-app-capable" content="yes">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -28,13 +25,20 @@
   <div id="root"></div>
 
   <script>
+    let deferredPrompt;
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(() => console.log('PWA Service Worker Registado!'))
-          .catch(err => console.log('Erro ao registar Service Worker:', err));
+        navigator.serviceWorker.register('sw.js')
+          .then(() => console.log('PWA OK!'))
+          .catch(err => console.log('Erro PWA:', err));
       });
     }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      window.dispatchEvent(new Event('canInstallApp'));
+    });
   </script>
 
   <script type="text/babel">
@@ -67,7 +71,8 @@
 
     function App() {
       const [tab, setTab] = React.useState('ementa');
-      
+      const [podeInstalar, setPodeInstalar] = React.useState(false);
+
       const [ementa, setEmenta] = React.useState({
         Segunda: { almoco: '', jantar: '' },
         Terca: { almoco: '', jantar: '' },
@@ -90,7 +95,21 @@
       const [novoProdutoCatalogo, setNovoProdutoCatalogo] = React.useState('');
       const [listaCompras, setListaCompras] = React.useState([]);
 
-      // Sincronizar Ementa
+      React.useEffect(() => {
+        window.addEventListener('canInstallApp', () => setPodeInstalar(true));
+      }, []);
+
+      const instalarApp = () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(() => {
+            deferredPrompt = null;
+            setPodeInstalar(false);
+          });
+        }
+      };
+
+      // Sincronizações
       React.useEffect(() => {
         const unsub = db.collection('ementas').doc('semanal').onSnapshot((doc) => {
           if (doc.exists) setEmenta(doc.data());
@@ -98,7 +117,6 @@
         return () => unsub();
       }, []);
 
-      // Sincronizar Pratos
       React.useEffect(() => {
         const unsub = db.collection('ementas').doc('catalogoPratos').onSnapshot((doc) => {
           if (doc.exists) setListaPratos(doc.data().itens || pratosIniciais);
@@ -106,7 +124,6 @@
         return () => unsub();
       }, []);
 
-      // Sincronizar Produtos
       React.useEffect(() => {
         const unsub = db.collection('compras').doc('catalogo').onSnapshot((doc) => {
           if (doc.exists) setCatalogo(doc.data().itens || produtosPreDefinidos);
@@ -114,7 +131,6 @@
         return () => unsub();
       }, []);
 
-      // Sincronizar Compras Ativas
       React.useEffect(() => {
         const unsub = db.collection('compras').doc('ativa').onSnapshot((doc) => {
           if (doc.exists) setListaCompras(doc.data().itens || []);
@@ -145,7 +161,6 @@
         e.preventDefault();
         if (!novoPratoInput.trim()) return;
         if (listaPratos.some(p => p.toLowerCase() === novoPratoInput.trim().toLowerCase())) return;
-        
         const novaLista = [...listaPratos, novoPratoInput.trim()].sort((a, b) => a.localeCompare(b, 'pt'));
         setListaPratos(novaLista);
         db.collection('ementas').doc('catalogoPratos').set({ itens: novaLista });
@@ -183,7 +198,6 @@
         e.preventDefault();
         if (!novoProdutoCatalogo.trim()) return;
         if (catalogo.some(c => c.toLowerCase() === novoProdutoCatalogo.trim().toLowerCase())) return;
-
         const novoCat = [...catalogo, novoProdutoCatalogo.trim()].sort((a, b) => a.localeCompare(b, 'pt'));
         setCatalogo(novoCat);
         db.collection('compras').doc('catalogo').set({ itens: novoCat });
@@ -232,10 +246,8 @@
         { chave: 'Domingo', nome: 'Domingo' }
       ];
 
-      // Ordenar pratos, produtos e compras de A a Z com suporte a acentos portugueses
       const pratosOrdenados = [...listaPratos].sort((a, b) => a.localeCompare(b, 'pt'));
       const catalogoOrdenado = [...catalogo].sort((a, b) => a.localeCompare(b, 'pt'));
-      
       const comprasOrdenadas = [...listaCompras].sort((a, b) => {
         if (a.comprado !== b.comprado) return a.comprado ? 1 : -1;
         return a.texto.localeCompare(b.texto, 'pt');
@@ -249,22 +261,31 @@
                 <h1 className="text-xl font-bold">Ementa & Compras 🥗</h1>
                 <p className="text-xs text-emerald-100">Sincronizado a dois</p>
               </div>
-              {tab === 'ementa' && (
-                <button 
-                  onClick={limparEmentaSemanal}
-                  className="text-[10px] bg-emerald-700 hover:bg-emerald-800 text-white font-medium px-2.5 py-1.5 rounded-lg transition"
-                >
-                  Limpar Ementa
-                </button>
-              )}
+              <div className="flex gap-2">
+                {podeInstalar && (
+                  <button 
+                    onClick={instalarApp}
+                    className="text-[10px] bg-amber-500 hover:bg-amber-600 text-white font-bold px-2.5 py-1.5 rounded-lg shadow transition"
+                  >
+                    📲 Instalar
+                  </button>
+                )}
+                {tab === 'ementa' && (
+                  <button 
+                    onClick={limparEmentaSemanal}
+                    className="text-[10px] bg-emerald-700 hover:bg-emerald-800 text-white font-medium px-2.5 py-1.5 rounded-lg transition"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
             </div>
           </header>
 
           <main className="p-4 flex-1">
-            {/* ABA EMENTA */}
+            {/* EMENTA */}
             {tab === 'ementa' && (
               <div className="space-y-4">
-                <p className="text-xs text-slate-400 text-center">Clica em "📖 Escolher" para pesquisar pratos guardados.</p>
                 {dias.map(({ chave, nome }) => (
                   <div key={chave} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
                     <span className="font-bold text-slate-800 text-sm block mb-3">{nome}</span>
@@ -307,7 +328,7 @@
               </div>
             )}
 
-            {/* ABA PRATOS */}
+            {/* PRATOS */}
             {tab === 'pratos' && (
               <div className="space-y-4">
                 <form onSubmit={adicionarNovoPratoGeral} className="flex gap-2">
@@ -335,7 +356,7 @@
               </div>
             )}
 
-            {/* ABA PRODUTOS */}
+            {/* PRODUTOS */}
             {tab === 'catalogo' && (
               <div className="space-y-4">
                 <form onSubmit={adicionarAoCatalogo} className="flex gap-2">
@@ -376,7 +397,7 @@
               </div>
             )}
 
-            {/* ABA COMPRAS */}
+            {/* COMPRAS */}
             {tab === 'compras' && (
               <div className="space-y-4">
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
@@ -498,7 +519,7 @@
                 tab === 'catalogo' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'
               }`}
             >
-              <span className="text-base mb-0.5">罐</span>
+              <span className="text-base mb-0.5">🥫</span>
               Produtos
             </button>
 
