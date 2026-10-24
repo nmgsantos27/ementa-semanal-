@@ -22,7 +22,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
-<body className="bg-slate-50 min-h-screen">
+<body class="bg-slate-50 min-h-screen">
   <div id="root"></div>
 
   <script>
@@ -64,7 +64,6 @@
       "Omelete de Espinafres", "Polvo à Lagareiro", "Salmão Grelhado com Arroz", "Strogonoff de Frango"
     ];
 
-    // Produtos com categorias predefinidas
     const produtosPreDefinidos = [
       { nome: "Arroz", categoria: "Mercearia" },
       { nome: "Azeite", categoria: "Mercearia" },
@@ -129,7 +128,6 @@
         }
       };
 
-      // Sincronizações Firebase
       React.useEffect(() => {
         const unsub = db.collection('ementas').doc('semanal').onSnapshot((doc) => {
           if (doc.exists) setEmenta(doc.data());
@@ -306,7 +304,6 @@
           </header>
 
           <main className="p-4 flex-1">
-            {/* EMENTA */}
             {tab === 'ementa' && (
               <div className="space-y-4">
                 {dias.map(({ chave, nome }) => (
@@ -351,7 +348,6 @@
               </div>
             )}
 
-            {/* PRATOS */}
             {tab === 'pratos' && (
               <div className="space-y-4">
                 <form onSubmit={adicionarNovoPratoGeral} className="flex gap-2">
@@ -379,7 +375,6 @@
               </div>
             )}
 
-            {/* PRODUTOS (CATÁLOGO) */}
             {tab === 'catalogo' && (
               <div className="space-y-4">
                 <form onSubmit={adicionarAoCatalogo} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
@@ -398,7 +393,7 @@
                       className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                     >
                       {categoriasSupermercado.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.nome.split(' ')[0]} {cat.id}</option>
+                        <option key={cat.id} value={cat.id}>{cat.id}</option>
                       ))}
                     </select>
                   </div>
@@ -448,7 +443,6 @@
               </div>
             )}
 
-            {/* COMPRAS (SUPERMERCADO) */}
             {tab === 'compras' && (
               <div className="space-y-4">
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
@@ -486,7 +480,6 @@
                         const itensDaCat = listaCompras.filter(i => (i.categoria || 'Outros') === cat.id);
                         if (itensDaCat.length === 0) return null;
 
-                        // Ordenar: pendentes primeiro (A-Z), comprados em baixo
                         const itensOrdenados = [...itensDaCat].sort((a, b) => {
                           if (a.comprado !== b.comprado) return a.comprado ? 1 : -1;
                           return a.texto.localeCompare(b.texto, 'pt');
@@ -525,7 +518,6 @@
             )}
           </main>
 
-          {/* MODAL PRATOS */}
           {modalAberto && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
               <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 max-h-[80vh] flex flex-col shadow-2xl">
@@ -560,7 +552,6 @@
             </div>
           )}
 
-          {/* NAVEGAÇÃO INFERIOR */}
           <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2 max-w-md mx-auto flex justify-around z-20 shadow-lg">
             <button
               onClick={() => setTab('ementa')}
