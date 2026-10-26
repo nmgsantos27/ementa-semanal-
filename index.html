@@ -57,26 +57,9 @@
     ];
 
     const produtosPreDefinidos = [
-      { nome: "Arroz", categoria: "Mercearia" },
-      { nome: "Azeite", categoria: "Mercearia" },
-      { nome: "Carne de Frango", categoria: "Frescos" },
-      { nome: "Carne de Vaca/Porco", categoria: "Frescos" },
-      { nome: "Fruta", categoria: "Frescos" },
-      { nome: "Legumes para Sopa", categoria: "Frescos" },
-      { nome: "Leite", categoria: "Lacticínios" },
-      { nome: "Massa", categoria: "Mercearia" },
-      { nome: "Ovos", categoria: "Lacticínios" },
-      { nome: "Papel Higiénico", categoria: "Limpeza" },
-      { nome: "Peixe Fresco", categoria: "Frescos" },
-      { nome: "Pão", categoria: "Mercearia" }
-    ];
-
-    const categoriasSupermercado = [
-      { id: "Frescos", nome: "🥬 Frescos (Frutas, Legumes & Talho)" },
-      { id: "Lacticínios", nome: "🥛 Lacticínios & Frios" },
-      { id: "Mercearia", nome: "🥫 Mercearia & Dispensa" },
-      { id: "Limpeza", nome: "🧻 Limpeza & Higiene" },
-      { id: "Outros", nome: "🛒 Outros" }
+      "Arroz", "Azeite", "Carne de Frango", "Carne de Vaca/Porco", 
+      "Fruta", "Legumes para Sopa", "Leite", "Massa", 
+      "Ovos", "Papel Higiénico", "Peixe Fresco", "Pão"
     ];
 
     function App() {
@@ -103,8 +86,11 @@
 
       const [catalogo, setCatalogo] = React.useState(produtosPreDefinidos);
       const [novoProdutoInput, setNovoProdutoInput] = React.useState('');
-      const [novaCategoriaInput, setNovaCategoriaInput] = React.useState('Mercearia');
       const [listaCompras, setListaCompras] = React.useState([]);
+
+      // Estado para edição no catálogo
+      const [editandoIndex, setEditandoIndex] = React.useState(null);
+      const [textoEditado, setTextoEditado] = React.useState('');
 
       React.useEffect(() => {
         window.addEventListener('canInstallApp', () => setPodeInstalar(true));
@@ -120,6 +106,7 @@
         }
       };
 
+      // Sincronizações Firebase com conversão segura
       React.useEffect(() => {
         const unsub = db.collection('ementas').doc('semanal').onSnapshot((doc) => {
           if (doc.exists) setEmenta(doc.data());
@@ -134,39 +121,26 @@
         return () => unsub();
       }, []);
 
-      // Leitura segura do catálogo com conversão automática se vierem strings antigas
       React.useEffect(() => {
         const unsub = db.collection('compras').doc('catalogo').onSnapshot((doc) => {
           if (doc.exists && doc.data().itens) {
             const itensBrutos = doc.data().itens;
-            const itensConvertidos = itensBrutos.map(item => {
-              if (typeof item === 'string') {
-                return { nome: item, categoria: 'Outros' };
-              }
-              return item;
-            });
+            const itensConvertidos = itensBrutos.map(item => typeof item === 'string' ? item : item.nome);
             setCatalogo(itensConvertidos);
           }
         });
         return () => unsub();
       }, []);
 
-      // Leitura segura da lista de compras ativa
       React.useEffect(() => {
         const unsub = db.collection('compras').doc('ativa').onSnapshot((doc) => {
           if (doc.exists && doc.data().itens) {
             const itensBrutos = doc.data().itens;
-            const itensConvertidos = itensBrutos.map(item => {
-              if (typeof item === 'string') {
-                return { id: Math.random(), texto: item, categoria: 'Outros', comprado: false };
-              }
-              return {
-                id: item.id || Math.random(),
-                texto: item.texto || item.nome || 'Produto',
-                categoria: item.categoria || 'Outros',
-                comprado: !!item.comprado
-              };
-            });
+            const itensConvertidos = itensBrutos.map(item => ({
+              id: item.id || Math.random(),
+              texto: item.texto || item.nome || 'Produto',
+              comprado: !!item.comprado
+            }));
             setListaCompras(itensConvertidos);
           }
         });
@@ -203,9 +177,11 @@
       };
 
       const removerPratoGeral = (pratoNome) => {
-        const novaLista = listaPratos.filter(p => p !== pratoNome);
-        setListaPratos(novaLista);
-        db.collection('ementas').doc('catalogoPratos').set({ itens: novaLista });
+        if (confirm(`Queres mesmo remover "${pratoNome}" da lista de pratos?`)) {
+          const novaLista = listaPratos.filter(p => p !== pratoNome);
+          setListaPratos(novaLista);
+          db.collection('ementas').doc('catalogoPratos').set({ itens: novaLista });
+        }
       };
 
       const sugerirRefeicao = (dia, refeicao) => {
@@ -232,23 +208,43 @@
       const adicionarAoCatalogo = (e) => {
         e.preventDefault();
         if (!novoProdutoInput.trim()) return;
-        if (catalogo.some(c => c.nome.toLowerCase() === novoProdutoInput.trim().toLowerCase())) return;
+        if (catalogo.some(c => c.toLowerCase() === novoProdutoInput.trim().toLowerCase())) return;
         
-        const novoCat = [...catalogo, { nome: novoProdutoInput.trim(), categoria: novaCategoriaInput }].sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+        const novoCat = [...catalogo, novoProdutoInput.trim()].sort((a, b) => a.localeCompare(b, 'pt'));
         setCatalogo(novoCat);
         db.collection('compras').doc('catalogo').set({ itens: novoCat });
         setNovoProdutoInput('');
       };
 
-      const removerDoCatalogo = (nomeProd) => {
-        const novoCat = catalogo.filter(c => c.nome !== nomeProd);
-        setCatalogo(novoCat);
-        db.collection('compras').doc('catalogo').set({ itens: novoCat });
+      const iniciarEdicaoProduto = (index, nomeAtual) => {
+        setEditandoIndex(index);
+        setTextoEditado(nomeAtual);
       };
 
-      const enviarParaCompras = (prodObj) => {
-        if (listaCompras.some(i => i.texto === prodObj.nome)) return;
-        const novaLista = [...listaCompras, { id: Date.now() + Math.random(), texto: prodObj.nome, categoria: prodObj.categoria || 'Outros', comprado: false }];
+      const guardarEdicaoProduto = (indexAntigo) => {
+        if (!textoEditado.trim()) return;
+        const nomeAntigo = catalogo[indexAntigo];
+        const novoCat = [...catalogo];
+        novoCat[indexAntigo] = textoEditado.trim();
+        const catOrdenado = novoCat.sort((a, b) => a.localeCompare(b, 'pt'));
+        
+        setCatalogo(catOrdenado);
+        db.collection('compras').doc('catalogo').set({ itens: catOrdenado });
+        setEditandoIndex(null);
+        setTextoEditado('');
+      };
+
+      const removerDoCatalogo = (nomeProd) => {
+        if (confirm(`Queres mesmo remover "${nomeProd}" dos produtos habituais?`)) {
+          const novoCat = catalogo.filter(c => c !== nomeProd);
+          setCatalogo(novoCat);
+          db.collection('compras').doc('catalogo').set({ itens: novoCat });
+        }
+      };
+
+      const enviarParaCompras = (produtoNome) => {
+        if (listaCompras.some(i => i.texto === produtoNome)) return;
+        const novaLista = [...listaCompras, { id: Date.now() + Math.random(), texto: produtoNome, comprado: false }];
         setListaCompras(novaLista);
         db.collection('compras').doc('ativa').set({ itens: novaLista });
       };
@@ -259,10 +255,12 @@
         db.collection('compras').doc('ativa').set({ itens: novaLista });
       };
 
-      const removerItemCompra = (id) => {
-        const novaLista = listaCompras.filter(item => item.id !== id);
-        setListaCompras(novaLista);
-        db.collection('compras').doc('ativa').set({ itens: novaLista });
+      const removerItemCompra = (id, textoItem) => {
+        if (confirm(`Queres mesmo remover "${textoItem}" da lista de compras?`)) {
+          const novaLista = listaCompras.filter(item => item.id !== id);
+          setListaCompras(novaLista);
+          db.collection('compras').doc('ativa').set({ itens: novaLista });
+        }
       };
 
       const limparListaSupermercado = () => {
@@ -273,9 +271,11 @@
       };
 
       const limparComprados = () => {
-        const novaLista = listaCompras.filter(item => !item.comprado);
-        setListaCompras(novaLista);
-        db.collection('compras').doc('ativa').set({ itens: novaLista });
+        if (confirm("Queres remover todos os itens que já foram comprados?")) {
+          const novaLista = listaCompras.filter(item => !item.comprado);
+          setListaCompras(novaLista);
+          db.collection('compras').doc('ativa').set({ itens: novaLista });
+        }
       };
 
       const dias = [
@@ -289,7 +289,11 @@
       ];
 
       const pratosOrdenados = [...listaPratos].sort((a, b) => a.localeCompare(b, 'pt'));
-      const catalogoOrdenado = [...catalogo].sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
+      const catalogoOrdenado = [...catalogo].sort((a, b) => a.localeCompare(b, 'pt'));
+      const comprasOrdenadas = [...listaCompras].sort((a, b) => {
+        if (a.comprado !== b.comprado) return a.comprado ? 1 : -1;
+        return a.texto.localeCompare(b.texto, 'pt');
+      });
 
       return (
         <div className="max-w-md mx-auto min-h-screen flex flex-col justify-between pb-24 relative">
@@ -388,61 +392,56 @@
 
             {tab === 'catalogo' && (
               <div className="space-y-4">
-                <form onSubmit={adicionarAoCatalogo} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
-                  <h3 className="font-bold text-slate-800 text-sm">Adicionar Produto Habitual</h3>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={novoProdutoInput}
-                      onChange={(e) => setNovoProdutoInput(e.target.value)}
-                      placeholder="Nome do produto..."
-                      className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                    />
-                    <select
-                      value={novaCategoriaInput}
-                      onChange={(e) => setNovaCategoriaInput(e.target.value)}
-                      className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                    >
-                      {categoriasSupermercado.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.id}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button type="submit" className="w-full bg-emerald-600 text-white font-semibold py-2.5 rounded-xl text-xs shadow">Adicionar ao Catálogo</button>
+                <form onSubmit={adicionarAoCatalogo} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={novoProdutoInput}
+                    onChange={(e) => setNovoProdutoInput(e.target.value)}
+                    placeholder="Adicionar produto habitual..."
+                    className="flex-1 p-3 bg-white border border-slate-200 rounded-xl text-sm shadow-sm"
+                  />
+                  <button type="submit" className="bg-emerald-600 text-white font-bold px-4 rounded-xl text-lg shadow-md">+</button>
                 </form>
 
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
                   <h3 className="font-bold text-slate-800 text-sm mb-1">Produtos Habituais (A–Z)</h3>
                   <p className="text-[11px] text-slate-400 mb-4">Clica num produto para o enviar para a Lista de Compras.</p>
                   
-                  <div className="space-y-3">
-                    {categoriasSupermercado.map(cat => {
-                      const prodsDaCat = catalogoOrdenado.filter(p => (p.categoria || 'Outros') === cat.id);
-                      if (prodsDaCat.length === 0) return null;
+                  <div className="space-y-2">
+                    {catalogoOrdenado.map((prod, index) => {
+                      const naLista = listaCompras.some(i => i.texto === prod);
+                      const aEditar = editandoIndex === index;
+
                       return (
-                        <div key={cat.id}>
-                          <h4 className="text-xs font-bold text-emerald-700 mb-1.5">{cat.nome}</h4>
-                          <div className="flex flex-wrap gap-1.5 mb-3">
-                            {prodsDaCat.map((prod, index) => {
-                              const naLista = listaCompras.some(i => i.texto === prod.nome);
-                              return (
-                                <div key={index} className="flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden text-xs">
-                                  <button
-                                    onClick={() => enviarParaCompras(prod)}
-                                    className={`px-3 py-1.5 font-medium transition flex items-center gap-1 ${
-                                      naLista ? 'bg-emerald-50 text-emerald-700' : 'text-slate-700 hover:bg-slate-100'
-                                    }`}
-                                  >
-                                    <span>{prod.nome}</span>
-                                    <span className="text-[10px]">{naLista ? '✓' : '+'}</span>
-                                  </button>
-                                  <button onClick={() => removerDoCatalogo(prod.nome)} className="px-2 text-rose-400 hover:text-rose-600 text-[10px] border-l border-slate-200">
-                                    ✕
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
+                        <div key={index} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          {aEditar ? (
+                            <div className="flex gap-2 flex-1 mr-2">
+                              <input
+                                type="text"
+                                value={textoEditado}
+                                onChange={(e) => setTextoEditado(e.target.value)}
+                                className="flex-1 p-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                              />
+                              <button onClick={() => guardarEdicaoProduto(index)} className="bg-emerald-600 text-white text-xs px-2.5 py-1 rounded-lg font-medium">Guardar</button>
+                              <button onClick={() => setEditandoIndex(null)} className="bg-slate-200 text-slate-600 text-xs px-2 py-1 rounded-lg">Cancelar</button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => enviarParaCompras(prod)}
+                                className={`text-xs font-medium text-left flex-1 truncate py-1 flex items-center gap-2 ${
+                                  naLista ? 'text-emerald-700 font-semibold' : 'text-slate-800'
+                                }`}
+                              >
+                                <span>{prod}</span>
+                                {naLista && <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Na lista ✓</span>}
+                              </button>
+                              <div className="flex gap-1">
+                                <button onClick={() => iniciarEdicaoProduto(index, prod)} className="text-xs text-slate-500 hover:text-emerald-600 px-2 py-1 font-medium">Editar</button>
+                                <button onClick={() => removerDoCatalogo(prod)} className="text-xs text-rose-500 font-bold px-2 py-1">✕</button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       );
                     })}
@@ -477,43 +476,26 @@
                   {listaCompras.length === 0 ? (
                     <p className="text-xs text-slate-400 text-center py-8">A lista de compras está vazia!</p>
                   ) : (
-                    <div className="space-y-4">
-                      {categoriasSupermercado.map(cat => {
-                        const itensDaCat = listaCompras.filter(i => (i.categoria || 'Outros') === cat.id);
-                        if (itensDaCat.length === 0) return null;
-
-                        const itensOrdenados = [...itensDaCat].sort((a, b) => {
-                          if (a.comprado !== b.comprado) return a.comprado ? 1 : -1;
-                          return a.texto.localeCompare(b.texto, 'pt');
-                        });
-
-                        return (
-                          <div key={cat.id} className="border-b border-slate-100 pb-3 last:border-none">
-                            <h4 className="text-xs font-bold text-emerald-700 mb-2">{cat.nome}</h4>
-                            <ul className="space-y-2">
-                              {itensOrdenados.map((item) => (
-                                <li key={item.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                                  <label className="flex items-center gap-3 flex-1 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={item.comprado}
-                                      onChange={() => toggleItemCompra(item.id)}
-                                      className="w-5 h-5 accent-emerald-600 rounded"
-                                    />
-                                    <span className={`text-sm font-medium ${item.comprado ? 'line-through text-slate-400' : 'text-slate-800'}`}>
-                                      {item.texto}
-                                    </span>
-                                  </label>
-                                  <button onClick={() => removerItemCompra(item.id)} className="text-xs text-rose-500 font-bold px-2 py-1">
-                                    ✕
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <ul className="space-y-2">
+                      {comprasOrdenadas.map((item) => (
+                        <li key={item.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          <label className="flex items-center gap-3 flex-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={item.comprado}
+                              onChange={() => toggleItemCompra(item.id)}
+                              className="w-5 h-5 accent-emerald-600 rounded"
+                            />
+                            <span className={`text-sm font-medium ${item.comprado ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                              {item.texto}
+                            </span>
+                          </label>
+                          <button onClick={() => removerItemCompra(item.id, item.texto)} className="text-xs text-rose-500 font-bold px-2 py-1">
+                            ✕
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </div>
