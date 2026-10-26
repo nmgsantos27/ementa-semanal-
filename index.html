@@ -80,6 +80,10 @@
       const [novoPratoInput, setNovoPratoInput] = React.useState('');
       const [pesquisaPrato, setPesquisaPrato] = React.useState('');
       
+      // Estados para edição de pratos
+      const [editandoPratoIndex, setEditandoPratoIndex] = React.useState(null);
+      const [textoPratoEditado, setTextoPratoEditado] = React.useState('');
+
       const [modalAberto, setModalAberto] = React.useState(false);
       const [diaSelecionado, setDiaSelecionado] = React.useState(null);
       const [refeicaoSelecionada, setRefeicaoSelecionada] = React.useState(null);
@@ -88,9 +92,9 @@
       const [novoProdutoInput, setNovoProdutoInput] = React.useState('');
       const [listaCompras, setListaCompras] = React.useState([]);
 
-      // Estado para edição no catálogo
-      const [editandoIndex, setEditandoIndex] = React.useState(null);
-      const [textoEditado, setTextoEditado] = React.useState('');
+      // Estados para edição de produtos no catálogo
+      const [editandoCatIndex, setEditandoCatIndex] = React.useState(null);
+      const [textoCatEditado, setTextoCatEditado] = React.useState('');
 
       React.useEffect(() => {
         window.addEventListener('canInstallApp', () => setPodeInstalar(true));
@@ -116,7 +120,11 @@
 
       React.useEffect(() => {
         const unsub = db.collection('ementas').doc('catalogoPratos').onSnapshot((doc) => {
-          if (doc.exists && doc.data().itens) setListaPratos(doc.data().itens);
+          if (doc.exists && doc.data().itens) {
+            const itensBrutos = doc.data().itens;
+            const itensConvertidos = itensBrutos.map(item => typeof item === 'string' ? item : item.nome);
+            setListaPratos(itensConvertidos);
+          }
         });
         return () => unsub();
       }, []);
@@ -176,6 +184,23 @@
         setNovoPratoInput('');
       };
 
+      const iniciarEdicaoPrato = (index, nomeAtual) => {
+        setEditandoPratoIndex(index);
+        setTextoPratoEditado(nomeAtual);
+      };
+
+      const guardarEdicaoPrato = (indexAntigo) => {
+        if (!textoPratoEditado.trim()) return;
+        const novaLista = [...listaPratos];
+        novaLista[indexAntigo] = textoPratoEditado.trim();
+        const listaOrdenada = novaLista.sort((a, b) => a.localeCompare(b, 'pt'));
+
+        setListaPratos(listaOrdenada);
+        db.collection('ementas').doc('catalogoPratos').set({ itens: listaOrdenada });
+        setEditandoPratoIndex(null);
+        setTextoPratoEditado('');
+      };
+
       const removerPratoGeral = (pratoNome) => {
         if (confirm(`Queres mesmo remover "${pratoNome}" da lista de pratos?`)) {
           const novaLista = listaPratos.filter(p => p !== pratoNome);
@@ -217,21 +242,20 @@
       };
 
       const iniciarEdicaoProduto = (index, nomeAtual) => {
-        setEditandoIndex(index);
-        setTextoEditado(nomeAtual);
+        setEditandoCatIndex(index);
+        setTextoCatEditado(nomeAtual);
       };
 
       const guardarEdicaoProduto = (indexAntigo) => {
-        if (!textoEditado.trim()) return;
-        const nomeAntigo = catalogo[indexAntigo];
+        if (!textoCatEditado.trim()) return;
         const novoCat = [...catalogo];
-        novoCat[indexAntigo] = textoEditado.trim();
+        novoCat[indexAntigo] = textoCatEditado.trim();
         const catOrdenado = novoCat.sort((a, b) => a.localeCompare(b, 'pt'));
         
         setCatalogo(catOrdenado);
         db.collection('compras').doc('catalogo').set({ itens: catOrdenado });
-        setEditandoIndex(null);
-        setTextoEditado('');
+        setEditandoCatIndex(null);
+        setTextoCatEditado('');
       };
 
       const removerDoCatalogo = (nomeProd) => {
@@ -378,14 +402,36 @@
 
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
                   <h3 className="font-bold text-slate-800 text-sm mb-3">Lista de Pratos (A–Z)</h3>
-                  <ul className="space-y-2">
-                    {pratosOrdenados.map((prato, index) => (
-                      <li key={index} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                        <span className="text-sm font-medium text-slate-800">{prato}</span>
-                        <button onClick={() => removerPratoGeral(prato)} className="text-xs text-rose-500 font-bold px-2 py-1">✕</button>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-2">
+                    {pratosOrdenados.map((prato, index) => {
+                      const aEditar = editandoPratoIndex === index;
+
+                      return (
+                        <div key={index} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                          {aEditar ? (
+                            <div className="flex gap-2 flex-1 mr-2">
+                              <input
+                                type="text"
+                                value={textoPratoEditado}
+                                onChange={(e) => setTextoPratoEditado(e.target.value)}
+                                className="flex-1 p-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                              />
+                              <button onClick={() => guardarEdicaoPrato(index)} className="bg-emerald-600 text-white text-xs px-2.5 py-1 rounded-lg font-medium">Guardar</button>
+                              <button onClick={() => setEditandoPratoIndex(null)} className="bg-slate-200 text-slate-600 text-xs px-2 py-1 rounded-lg">Cancelar</button>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-sm font-medium text-slate-800 flex-1 truncate">{prato}</span>
+                              <div className="flex gap-1">
+                                <button onClick={() => iniciarEdicaoPrato(index, prato)} className="text-xs text-slate-500 hover:text-emerald-600 px-2 py-1 font-medium">Editar</button>
+                                <button onClick={() => removerPratoGeral(prato)} className="text-xs text-rose-500 font-bold px-2 py-1">✕</button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -410,7 +456,7 @@
                   <div className="space-y-2">
                     {catalogoOrdenado.map((prod, index) => {
                       const naLista = listaCompras.some(i => i.texto === prod);
-                      const aEditar = editandoIndex === index;
+                      const aEditar = editandoCatIndex === index;
 
                       return (
                         <div key={index} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
@@ -418,12 +464,12 @@
                             <div className="flex gap-2 flex-1 mr-2">
                               <input
                                 type="text"
-                                value={textoEditado}
-                                onChange={(e) => setTextoEditado(e.target.value)}
+                                value={textoCatEditado}
+                                onChange={(e) => setTextoCatEditado(e.target.value)}
                                 className="flex-1 p-1.5 bg-white border border-slate-300 rounded-lg text-xs"
                               />
                               <button onClick={() => guardarEdicaoProduto(index)} className="bg-emerald-600 text-white text-xs px-2.5 py-1 rounded-lg font-medium">Guardar</button>
-                              <button onClick={() => setEditandoIndex(null)} className="bg-slate-200 text-slate-600 text-xs px-2 py-1 rounded-lg">Cancelar</button>
+                              <button onClick={() => setEditandoCatIndex(null)} className="bg-slate-200 text-slate-600 text-xs px-2 py-1 rounded-lg">Cancelar</button>
                             </div>
                           ) : (
                             <>
